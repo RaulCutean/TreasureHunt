@@ -91,6 +91,17 @@ void list_operation(const char* hunt_id) {
     exit(-1);
   }
 
+  struct stat fileStat;
+  if (stat(fileToRead, &fileStat) == 0) {
+    char timeBuf[100];
+    struct tm* timeinfo = localtime(&fileStat.st_mtime);
+    strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M:%S", timeinfo);
+    char modMsg[200];
+    int modLen = snprintf(modMsg, sizeof(modMsg), "Last modified: %s\n", timeBuf);
+    write(STDOUT_FILENO, modMsg, modLen);
+  }
+
+
   off_t fileSize = lseek(fd, 0, SEEK_END);
   lseek(fd, 0, SEEK_SET);
   char header[200];
@@ -277,31 +288,49 @@ void remove_treasure_operation(const char* hunt_id , int id) {
   closedir(directory);
 }
 
-
 Treasure create_treasure() {
-  Treasure treasure ;
-  printf("Insert the id: ");
-  scanf("%d" , &treasure.id) ;
-
-  printf("Insert the username: ");
-  scanf("%s" , treasure.username) ;
-
-  printf("Insert the x coordinate: ");
-  scanf("%f" , &treasure.coordinates.x) ;
-
-  printf("Insert the y coordinate: ");
-  scanf("%f" , &treasure.coordinates.y) ;
+  Treasure treasure;
 
 
-  printf("Insert the clue: ");
-  //fgets(treasure.clue , sizeof(treasure.clue) , stdin) ;
-  scanf(" %[^\n]" , treasure.clue) ;
-
-  printf("Insert the value: ");
-  scanf("%d" , &treasure.value) ;
+  do {
+    printf("Insert the id (positive integer): ");
+  } while (scanf("%d", &treasure.id) != 1 || treasure.id <= 0);
 
 
-  return treasure ;
+  do {
+    printf("Insert the username (non-empty): ");
+    scanf("%31s", treasure.username);
+  } while (strlen(treasure.username) == 0);
+
+
+  do {
+    printf("Insert the x coordinate (non-negative): ");
+  } while (scanf("%f", &treasure.coordinates.x) != 1 || treasure.coordinates.x < 0);
+
+  do {
+    printf("Insert the y coordinate (non-negative): ");
+  } while (scanf("%f", &treasure.coordinates.y) != 1 || treasure.coordinates.y < 0);
+
+  // Clear leftover newline
+  while (getchar() != '\n');
+
+
+  do {
+    printf("Insert the clue (non-empty): ");
+    fgets(treasure.clue, sizeof(treasure.clue), stdin);
+
+    size_t len = strlen(treasure.clue);
+    if (len > 0 && treasure.clue[len - 1] == '\n') {
+      treasure.clue[len - 1] = '\0';
+    }
+  } while (strlen(treasure.clue) == 0);
+
+
+  do {
+    printf("Insert the value (>= 0): ");
+  } while (scanf("%d", &treasure.value) != 1 || treasure.value < 0);
+
+  return treasure;
 }
 
 void print_treasure(Treasure treasure) {
@@ -321,4 +350,7 @@ bool create_directory(const char* directoryName) {
     }
     return true;
 }
+
+
+
 
