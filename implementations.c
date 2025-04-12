@@ -2,342 +2,287 @@
 
 struct stat st = {0} ;
  
-
 void add_operation(const char* hunt_id) {
   DIR* directory = opendir(hunt_id);
-  
   char newDirectoryPath[50];
   char fileToWrite[150];
+  char huntLogFile[150];
+  char rootLogFile[150];
 
-  
-  char huntLogFile[150] ;
-  char rootLogFile[150] ; 
+  bool flag = false;
+  sprintf(rootLogFile , "./%s-%s" , ROOT_LOG_FILE , hunt_id);
 
-  bool flag = false ; 
-
-  sprintf(rootLogFile , "./%s-%s" , ROOT_LOG_FILE , hunt_id) ;
-    
   if(directory == NULL) {
-
-    flag = true ;
-    sprintf(newDirectoryPath  ,  "./%s" , hunt_id) ;
-   
-    if(!create_directory(newDirectoryPath)) {
-      return ; 
-    }
-    
+    flag = true;
+    sprintf(newDirectoryPath  ,  "./%s" , hunt_id);
+    if(!create_directory(newDirectoryPath)) return;
   }
 
   if(flag) {
     directory = opendir(newDirectoryPath);
     if(directory == NULL) {
-      fprintf(stderr , "Error openning directory") ;
-      exit(-1) ;  
-    }  
-    sprintf(fileToWrite , "%s/%s", newDirectoryPath , TREASURE) ;
+      const char* msg = "Error opening directory\n";
+      write(STDERR_FILENO, msg, strlen(msg));
+      exit(-1);
+    }
+    sprintf(fileToWrite , "%s/%s", newDirectoryPath , TREASURE);
     sprintf(huntLogFile , "%s/%s" , newDirectoryPath , LOGGED_HUNT);
-
     if(symlink(huntLogFile , rootLogFile) == -1) {
-      fprintf(stderr , "Error creating the symbolic link");
-      exit(-1) ;  
-    } 
-    
-  }else {
-    sprintf(fileToWrite , "%s/%s" , hunt_id , TREASURE  ) ;
-    sprintf(huntLogFile , "%s/%s" , hunt_id , LOGGED_HUNT ) ;
-  
-  }
-  //printf("%s\n" , rootLogFile) ;
-  // printf("%s" , huntLogFile) ;
-  
-  FILE* file = fopen(fileToWrite , "a");
-  if(file == NULL) {
-    fprintf(stderr , "Error openning the file") ;
-    exit(-1) ;  
+      const char* msg = "Error creating symbolic link\n";
+      write(STDERR_FILENO, msg, strlen(msg));
+      exit(-1);
+    }
+  } else {
+    sprintf(fileToWrite , "%s/%s" , hunt_id , TREASURE);
+    sprintf(huntLogFile , "%s/%s" , hunt_id , LOGGED_HUNT);
   }
 
-  Treasure treasure = create_treasure() ;
-  if( fwrite(&treasure , sizeof(treasure) , 1 , file) != 1){
-    fprintf(stderr , "Error writing treasure") ;
-    exit(-1) ;  
+  int fd = open(fileToWrite, O_WRONLY | O_CREAT | O_APPEND, 0644);
+  if(fd == -1) {
+    const char* msg = "Error opening the file\n";
+    write(STDERR_FILENO, msg, strlen(msg));
+    exit(-1);
   }
-  
-  FILE* logFile = fopen(huntLogFile , "a") ;
-  if(logFile == NULL) {
-    fprintf(stderr , "Error openning the log file") ;
-    exit(-1); 
+
+  Treasure treasure = create_treasure();
+  if(write(fd, &treasure, sizeof(treasure)) != sizeof(treasure)) {
+    const char* msg = "Error writing treasure\n";
+    write(STDERR_FILENO, msg, strlen(msg));
+    exit(-1);
   }
-  
-  if(fprintf(logFile , "Added treasure with the id: %d\n" , treasure.id) < 0) {
-    fprintf(stderr , "Error logging operation to: %s", huntLogFile) ;
-    exit(-1) ;
-    
+  close(fd);
+
+  int logFd = open(huntLogFile, O_WRONLY | O_CREAT | O_APPEND, 0644);
+  if(logFd == -1) {
+    const char* msg = "Error opening the log file\n";
+    write(STDERR_FILENO, msg, strlen(msg));
+    exit(-1);
   }
-  
-  if(fclose(file)) {
-    fprintf(stderr , "Error closing the file") ;
-    return ; 
-  }
-  
-  if(fclose(logFile)) {
-    fprintf(stderr , "Error closing the log file") ;
-    return ;  
-  }
-  
-  
+
+  char logMsg[100];
+  int len = snprintf(logMsg, sizeof(logMsg), "Added treasure with the id: %d\n", treasure.id);
+  write(logFd, logMsg, len);
+  close(logFd);
+
   if(closedir(directory)) {
-    fprintf(stderr , "Error closing the directory") ;
-    return ; 
-  } 
-  
-  
+    const char* msg = "Error closing the directory\n";
+    write(STDERR_FILENO, msg, strlen(msg));
+  }
 }
 
+
 void list_operation(const char* hunt_id) {
-  DIR* dir = opendir(hunt_id) ;
+  DIR* dir = opendir(hunt_id);
   if(dir == NULL) {
-    fprintf(stderr , "There insn't any hunt with : %s name" , hunt_id) ;
-    exit(-1) ; 
+    const char* msg = "There isn't any hunt with that name\n";
+    write(STDERR_FILENO , msg , strlen(msg));
+    exit(-1);
   }
 
-  char huntLogFile[150] ;
+  char huntLogFile[150];
   char fileToRead[150];
-  
-  sprintf(fileToRead , "./%s/treasures" , hunt_id) ;
-  sprintf(huntLogFile , "./%s/logged_hunt" , hunt_id) ;  
+  sprintf(fileToRead , "./%s/treasures" , hunt_id);
+  sprintf(huntLogFile , "./%s/logged_hunt" , hunt_id);
 
-  FILE* file = fopen(fileToRead , "rb") ; 
-  if(file == NULL) {
-    fprintf(stderr , "Error openning the treasure file\n") ;
-    exit(-1) ;
+  int fd = open(fileToRead, O_RDONLY);
+  if(fd == -1) {
+    const char* msg = "Error opening the treasure file\n";
+    write(STDERR_FILENO , msg , strlen(msg));
+    exit(-1);
   }
-  
-  fseek(file , 0L , SEEK_END) ;
-  size_t fileSize = ftell(file) ; 
-  rewind(file) ;
-  
-  printf("File name: %s\nFile size: %lu\n\n" , hunt_id , fileSize ) ; 
-  Treasure treasure ; 
-  while(fread(&treasure , sizeof(Treasure) , 1 , file)) {
-    print_treasure(treasure) ; 
+
+  off_t fileSize = lseek(fd, 0, SEEK_END);
+  lseek(fd, 0, SEEK_SET);
+  char header[200];
+  int hlen = snprintf(header, sizeof(header), "File name: %s\nFile size: %ld\n\n", hunt_id, fileSize);
+  write(STDOUT_FILENO, header, hlen);
+
+  Treasure treasure;
+  while(read(fd, &treasure, sizeof(Treasure)) == sizeof(Treasure)) {
+    print_treasure(treasure);
   }
-  
-  FILE* logFile = fopen(huntLogFile , "a" ); 
-  if(logFile == NULL) {
-    fprintf(stderr , "Error openning the file") ;
-    exit(-1);  
+  close(fd);
+
+  int logFd = open(huntLogFile, O_WRONLY | O_CREAT | O_APPEND, 0644);
+  if(logFd == -1) {
+    const char* msg = "Error opening the log file\n";
+    write(STDERR_FILENO , msg , strlen(msg));
+    exit(-1);
   }
-  if(fprintf(logFile , "Treasures from the hunt \"%s\" were listed\n" , hunt_id) < 0) {
-    fprintf(stderr , "Error logging operation to: %s" , huntLogFile) ;
-    exit(-1) ;  
-  } 
-  
-  if(fclose(file)) {
-    fprintf(stderr , "Error closing the file") ;
-    return ; 
-  }
-  
-  if(fclose(logFile)) {
-    fprintf(stderr , "Error closing the log file") ;
-    return ;  
-  }
-  
-  
-  if(closedir(dir)) {
-    fprintf(stderr , "Error closing the directory") ;
-    return ; 
-  } 
-  
+  char logMsg[150];
+  int len = snprintf(logMsg, sizeof(logMsg), "Treasures from the hunt \"%s\" were listed\n", hunt_id);
+  write(logFd, logMsg, len);
+  close(logFd);
+
+  closedir(dir);
 }
 
 void view_operation(const char* hunt_id , int id) {
-  DIR* directory = opendir(hunt_id) ;
+  DIR* directory = opendir(hunt_id);
   if(directory == NULL) {
-    fprintf(stderr , "No hunts with : %s name" , hunt_id) ;
-    exit(-1) ;  
+    const char* msg = "No hunts with that name\n";
+    write(STDERR_FILENO , msg , strlen(msg));
+    exit(-1);
   }
-  char fileToRead[150] ;
-  sprintf(fileToRead , "./%s/treasures" ,hunt_id );
 
-  FILE* file = fopen(fileToRead , "rb");
-  if(file == NULL) {
-    fprintf(stderr , "Error openning the file") ;
-    exit(-1) ;  
+  char fileToRead[150];
+  sprintf(fileToRead , "./%s/treasures" ,hunt_id);
+  int fd = open(fileToRead , O_RDONLY);
+  if(fd == -1) {
+    const char* msg = "Error opening the file\n";
+    write(STDERR_FILENO , msg , strlen(msg));
+    exit(-1);
   }
-  Treasure treasure ; 
-  while(fread(&treasure , sizeof(Treasure) , 1 , file)) {
+  Treasure treasure;
+  while(read(fd, &treasure, sizeof(Treasure)) == sizeof(Treasure)) {
     if(treasure.id == id) {
-      print_treasure(treasure) ; 
-      return ; 
-    }  
-  }   
-  
-  
+      print_treasure(treasure);
+      close(fd);
+      closedir(directory);
+      return;
+    }
+  }
+  close(fd);
+  closedir(directory);
 }
 
 void remove_hunt_operation(const char* hunt_id) {
-  DIR* directory = opendir(hunt_id) ;
+  DIR* directory = opendir(hunt_id);
   if(directory == NULL) {
-    fprintf(stderr , "No hunts with: %s name" , hunt_id) ;
-    exit(-1) ;  
+    char msg[200];
+    int len = snprintf(msg, sizeof(msg), "No hunts with: %s name\n", hunt_id);
+    write(STDERR_FILENO, msg, len);
+    exit(-1);
   }
-  char rootLogFile[150] ;
-  char huntLogFile[150] ;
 
-  sprintf(huntLogFile , "%s/%s" , hunt_id , LOGGED_HUNT ) ;
-  sprintf(rootLogFile , "%s-%s" , ROOT_LOG_FILE , hunt_id) ;
-  
+  char rootLogFile[150];
+  char huntLogFile[150];
+
+  sprintf(huntLogFile , "%s/%s" , hunt_id , LOGGED_HUNT);
+  sprintf(rootLogFile , "%s-%s" , ROOT_LOG_FILE , hunt_id);
+
   if(unlink(rootLogFile) < 0) {
-    fprintf(stderr , "Error deleting symbolic link");
-    return ; 
+    const char* msg = "Error deleting symbolic link\n";
+    write(STDERR_FILENO, msg, strlen(msg));
+    return;
   }
-   
-  char fileName[300]; 
+
+  char fileName[300];
   struct dirent* entity;
-  
- 
+
   while((entity = readdir(directory)) != NULL) {
-   
     if(strcmp(entity->d_name , ".") == 0 || strcmp(entity->d_name , "..") == 0) {
-      continue ;  
+      continue;
     }
-    sprintf(fileName , "./%s/%s" , hunt_id , entity->d_name) ;
-    printf("%s\n" , fileName) ; 
-    if(remove(fileName) == -1) {
-      fprintf(stderr , "Error deleting the file");
-      exit(-1); 
+    sprintf(fileName , "./%s/%s" , hunt_id , entity->d_name);
+    if(unlink(fileName) == -1) {
+      const char* msg = "Error deleting the file\n";
+      write(STDERR_FILENO , msg , strlen(msg));
+      exit(-1);
     }
-    
   }
-  
+
   if(rmdir(hunt_id) == -1) {
-    fprintf(stderr , "Error deleting the directory: %s" , hunt_id) ;
-    exit(-1) ;  
-  }  
-  
-  closedir(directory) ;  
-  
+    char msg[200];
+    int len = snprintf(msg, sizeof(msg), "Error deleting the directory: %s\n", hunt_id);
+    write(STDERR_FILENO , msg , len);
+    exit(-1);
+  }
+
+  closedir(directory);
 }
+
 void remove_treasure_operation(const char* hunt_id , int id) {
+  DIR* directory = opendir(hunt_id);
+  if(directory == NULL){
+    char msg[200];
+    int len = snprintf(msg, sizeof(msg), "There isn't any hunt with: %s name\n", hunt_id);
+    write(STDERR_FILENO, msg, len);
+    exit(-1);
+  }
 
-  
-   DIR* directory = opendir(hunt_id) ;
-   if(directory == NULL){
-     fprintf(stderr , "There insn't any hunt with : %s name" , hunt_id);
-     exit(-1) ; 
-   }
-   char fileToRead[150] ;
-   
-   char copyFile[150] ;
+  char fileToRead[150];
+  char copyFile[150];
+  char huntLogFile[150];
 
-   char huntLogFile[150];
+  sprintf(fileToRead  , "./%s/%s" , hunt_id , TREASURE);
+  sprintf(copyFile  , "./%s/%s-%s" , hunt_id , TREASURE , COPY);
+  sprintf(huntLogFile , "./%s/%s" , hunt_id , LOGGED_HUNT);
 
-   sprintf(fileToRead  , "./%s/%s" , hunt_id , TREASURE);
-   
-   sprintf(copyFile  , "./%s/%s-%s" , hunt_id , TREASURE , COPY);
+  int fd = open(fileToRead, O_RDONLY);
+  if(fd == -1) {
+    const char* msg = "Error opening the treasure file\n";
+    write(STDERR_FILENO , msg , strlen(msg));
+    exit(-1);
+  }
+  int copyFd = open(copyFile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+  if(copyFd == -1) {
+    const char* msg = "Error opening the copy treasure file\n";
+    write(STDERR_FILENO , msg , strlen(msg));
+    exit(-1);
+  }
+  int logFd = open(huntLogFile, O_WRONLY | O_CREAT | O_APPEND, 0644);
+  if(logFd == -1) {
+    const char* msg = "Error opening the log file\n";
+    write(STDERR_FILENO , msg , strlen(msg));
+    exit(-1);
+  }
 
-   sprintf(huntLogFile , "./%s/%s" , hunt_id , LOGGED_HUNT) ;
-   
-   
-   FILE* file = fopen(fileToRead , "rb") ;
-   if(file == NULL) {
-     fprintf(stderr , "Error openning the treasure file") ;
-     exit(-1) ; 
-   }
-   FILE* copyFilePtr = fopen(copyFile , "wb") ;
-   if(copyFilePtr == NULL) {
-     fprintf(stderr , "Error openning the copy treasure file") ;
-     exit(-1) ; 
-   }
-   FILE* logFile = fopen(huntLogFile, "a");
-   if(logFile == NULL) {
-     fprintf(stderr , "Error openning the log file") ;
-     exit(-1) ;  
-   } 
-     
-   bool found = false ; 
-   Treasure treasure ; 
-   while(fread(&treasure , sizeof(Treasure) , 1 , file)) {
-     if(treasure.id == id) {
-       print_treasure(treasure) ;
-       found = true ;
-       continue ; 
-     }
-     if(fwrite(&treasure , sizeof(Treasure) , 1 , copyFilePtr) != 1) {
-       fprintf(stderr , "Error writing to temp file") ;
-       exit(-1) ; 
-     }  
-   }
-   if(!found) {
-     printf("Treasure with the id %d doesn't exist\n" , id );
-     if(fclose(file) == EOF) {
-       fprintf(stderr , "Error closing treasure file") ;
-       exit(-1); 
-     }
-     if(fclose(copyFilePtr) == EOF) {
-       fprintf(stderr , "Error closing temp file");
-       exit(-1) ; 
-     }
-     
-     fprintf(logFile , "Treasure with the id %d doesn't exist\n" , id) ;
-     
-     if(remove(copyFile) == -1) {
-       fprintf(stderr , "Error removing temporary file %s" , copyFile);
-       exit(-1);
-     }
-     if(fclose(logFile)) {
-        fprintf(stderr , "Error closing the logFile");
-	exit(-1);
-     }
-     return ; 
-     
-   }
-   
-   fprintf(logFile , "Treasure with the id %d was deleted\n" , id) ;
+  bool found = false;
+  Treasure treasure;
+  while(read(fd, &treasure, sizeof(Treasure)) == sizeof(Treasure)) {
+    if(treasure.id == id) {
+      print_treasure(treasure);
+      found = true;
+      continue;
+    }
+    if(write(copyFd, &treasure, sizeof(Treasure)) != sizeof(Treasure)) {
+      const char* msg = "Error writing to temp file\n";
+      write(STDERR_FILENO , msg , strlen(msg));
+      exit(-1);
+    }
+  }
 
-   if(fclose(file)) {
-     fprintf(stderr , "Error closing treasure file") ;
-     exit(-1); 
-   }
-   
-   if(fclose(copyFilePtr)) {
-     fprintf(stderr , "Error closing temp file");
-     exit(-1) ; 
-   }
-   
-   if(fclose(logFile)) {
-     fprintf(stderr , "Error closing the logFile");
-     exit(-1);
-   }
-   if(remove(fileToRead) == -1) {
-     fprintf(stderr , "Error removing the treasure file") ;
-     exit(-1) ; 
-   }
-   if(rename(copyFile , fileToRead) < 0) {
-     fprintf(stderr , "Error renaming the temp file") ;
-     exit(-1) ; 
-   }
-   
+  if(!found) {
+    char msg[150];
+    int len = snprintf(msg, sizeof(msg), "Treasure with the id %d doesn't exist\n", id);
+    write(STDOUT_FILENO, msg, len);
+    close(fd);
+    close(copyFd);
+    len = snprintf(msg, sizeof(msg), "Treasure with the id %d doesn't exist\n", id);
+    write(logFd, msg, len);
+    unlink(copyFile);
+    close(logFd);
+    return;
+  }
 
-  
-} 
+  char logMsg[150];
+  int len = snprintf(logMsg, sizeof(logMsg), "Treasure with the id %d was deleted\n", id);
+  write(logFd, logMsg, len);
 
-bool create_directory(const  char* directoryName) {
+  close(fd);
+  close(copyFd);
+  close(logFd);
 
-  if(mkdir(directoryName , S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1) {
-    fprintf(stderr , "Error creating new hunt directory: %s" , directoryName);
-    return false ; 
-  } 
-
-  return true ; 
+  if(unlink(fileToRead) == -1) {
+    const char* msg = "Error removing the treasure file\n";
+    write(STDERR_FILENO , msg , strlen(msg));
+    exit(-1);
+  }
+  if(rename(copyFile , fileToRead) < 0) {
+    const char* msg = "Error renaming the temp file\n";
+    write(STDERR_FILENO , msg , strlen(msg));
+    exit(-1);
+  }
+  closedir(directory);
 }
 
 
 Treasure create_treasure() {
-  Treasure treasure ; 
+  Treasure treasure ;
   printf("Insert the id: ");
   scanf("%d" , &treasure.id) ;
-  
+
   printf("Insert the username: ");
   scanf("%s" , treasure.username) ;
 
@@ -346,17 +291,17 @@ Treasure create_treasure() {
 
   printf("Insert the y coordinate: ");
   scanf("%f" , &treasure.coordinates.y) ;
-  
-  
+
+
   printf("Insert the clue: ");
   //fgets(treasure.clue , sizeof(treasure.clue) , stdin) ;
-  scanf(" %[^\n]" , treasure.clue) ; 
+  scanf(" %[^\n]" , treasure.clue) ;
 
   printf("Insert the value: ");
   scanf("%d" , &treasure.value) ;
-  
 
-  return treasure ; 
+
+  return treasure ;
 }
 
 void print_treasure(Treasure treasure) {
@@ -365,9 +310,15 @@ void print_treasure(Treasure treasure) {
     printf("Coordinates: (%.2f, %.2f)\n", treasure.coordinates.x, treasure.coordinates.y);
     printf("Clue: %s\n", treasure.clue);
     printf("Value: %d\n", treasure.value);
-    printf("\n") ;  
-} 
+    printf("\n") ;
+}
 
-
-
+bool create_directory(const char* directoryName) {
+    if (mkdir(directoryName, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1) {
+        const char* msg = "Error creating new hunt directory\n";
+        write(STDERR_FILENO, msg, strlen(msg));
+        return false;
+    }
+    return true;
+}
 
