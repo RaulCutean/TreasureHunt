@@ -288,58 +288,88 @@ void remove_treasure_operation(const char* hunt_id , int id) {
   closedir(directory);
 }
 
-Treasure create_treasure() {
-  Treasure treasure;
 
-
-  do {
-    printf("Insert the id (positive integer): ");
-  } while (scanf("%d", &treasure.id) != 1 || treasure.id <= 0);
-
-
-  do {
-    printf("Insert the username (non-empty): ");
-    scanf("%31s", treasure.username);
-  } while (strlen(treasure.username) == 0);
-
-
-  do {
-    printf("Insert the x coordinate (non-negative): ");
-  } while (scanf("%f", &treasure.coordinates.x) != 1 || treasure.coordinates.x < 0);
-
-  do {
-    printf("Insert the y coordinate (non-negative): ");
-  } while (scanf("%f", &treasure.coordinates.y) != 1 || treasure.coordinates.y < 0);
-
-  // Clear leftover newline
-  while (getchar() != '\n');
-
-
-  do {
-    printf("Insert the clue (non-empty): ");
-    fgets(treasure.clue, sizeof(treasure.clue), stdin);
-
-    size_t len = strlen(treasure.clue);
-    if (len > 0 && treasure.clue[len - 1] == '\n') {
-      treasure.clue[len - 1] = '\0';
-    }
-  } while (strlen(treasure.clue) == 0);
-
-
-  do {
-    printf("Insert the value (>= 0): ");
-  } while (scanf("%d", &treasure.value) != 1 || treasure.value < 0);
-
-  return treasure;
+void prompt(const char* msg) {
+    write(STDOUT_FILENO, msg, strlen(msg));
 }
 
+
+void read_line(char* buffer, size_t size) {
+    size_t i = 0;
+    char ch;
+    while (i < size - 1) {
+        ssize_t n = read(STDIN_FILENO, &ch, 1);
+        if (n <= 0 || ch == '\n') break;
+        buffer[i++] = ch;
+    }
+    buffer[i] = '\0';
+}
+
+Treasure create_treasure() {
+    Treasure treasure;
+    char buffer[128];
+
+
+    do {
+        prompt("Insert the id (positive integer): ");
+        read_line(buffer, sizeof(buffer));
+        treasure.id = atoi(buffer);
+    } while (treasure.id <= 0);
+
+
+    do {
+        prompt("Insert the username (non-empty): ");
+        read_line(treasure.username, sizeof(treasure.username));
+    } while (strlen(treasure.username) == 0);
+
+
+    do {
+        prompt("Insert the x coordinate (non-negative): ");
+        read_line(buffer, sizeof(buffer));
+        treasure.coordinates.x = atof(buffer);
+    } while (treasure.coordinates.x < 0);
+
+
+    do {
+        prompt("Insert the y coordinate (non-negative): ");
+        read_line(buffer, sizeof(buffer));
+        treasure.coordinates.y = atof(buffer);
+    } while (treasure.coordinates.y < 0);
+
+
+    do {
+        prompt("Insert the clue (non-empty): ");
+        read_line(treasure.clue, sizeof(treasure.clue));
+    } while (strlen(treasure.clue) == 0);
+
+
+    do {
+        prompt("Insert the value (>= 0): ");
+        read_line(buffer, sizeof(buffer));
+        treasure.value = atoi(buffer);
+    } while (treasure.value < 0);
+
+    return treasure;
+}
+
+
 void print_treasure(Treasure treasure) {
-    printf("Treasure ID: %d\n", treasure.id);
-    printf("Username: %s\n", treasure.username);
-    printf("Coordinates: (%.2f, %.2f)\n", treasure.coordinates.x, treasure.coordinates.y);
-    printf("Clue: %s\n", treasure.clue);
-    printf("Value: %d\n", treasure.value);
-    printf("\n") ;
+    char buffer[512];
+
+    int len = snprintf(buffer, sizeof(buffer),
+        "Treasure ID: %d\n"
+        "Username: %s\n"
+        "Coordinates: (%.2f, %.2f)\n"
+        "Clue: %s\n"
+        "Value: %d\n\n",
+        treasure.id,
+        treasure.username,
+        treasure.coordinates.x, treasure.coordinates.y,
+        treasure.clue,
+        treasure.value
+    );
+
+    write(STDOUT_FILENO, buffer, len);
 }
 
 bool create_directory(const char* directoryName) {
@@ -350,7 +380,5 @@ bool create_directory(const char* directoryName) {
     }
     return true;
 }
-
-
 
 

@@ -17,6 +17,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <time.h>
+#include <signal.h>
+#include <sys/wait.h>
 
 
 #define ADD  "add"
@@ -31,6 +33,12 @@
 #define ROOT_LOG_FILE "root_log_file"
 #define COPY "copy"
 
+#define LIST_HUNTS "list_hunts"
+#define START_MONITOR "start_monitor"
+#define LIST_TREASURES "list_treasures"
+#define VIEW_TREASURE "view_treasure"
+#define STOP_MONITOR "stop_monitor"
+#define EXIT "exit"
 
 typedef struct {
     float x ;
