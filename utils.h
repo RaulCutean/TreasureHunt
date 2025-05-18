@@ -32,6 +32,7 @@
 #define EXTENSION "./"
 #define ROOT_LOG_FILE "root_log_file"
 #define COPY "copy"
+#define HUNT "hunt"
 
 #define LIST_HUNTS "list_hunts"
 #define START_MONITOR "start_monitor"
