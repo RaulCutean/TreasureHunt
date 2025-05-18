@@ -352,6 +352,16 @@ Treasure create_treasure() {
     return treasure;
 }
 
+/*
+void print_treasure(Treasure treasure) {
+    printf("Treasure ID: %d\n", treasure.id);
+    printf("Username: %s\n", treasure.username);
+    printf("Coordinates: (%.2f, %.2f)\n", treasure.coordinates.x, treasure.coordinates.y);
+    printf("Clue: %s\n", treasure.clue);
+    printf("Value: %d\n", treasure.value);
+    printf("\n") ;
+    }*/
+
 
 void print_treasure(Treasure treasure) {
     char buffer[512];
@@ -371,6 +381,7 @@ void print_treasure(Treasure treasure) {
 
     write(STDOUT_FILENO, buffer, len);
 }
+
 
 bool create_directory(const char* directoryName) {
     if (mkdir(directoryName, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1) {
